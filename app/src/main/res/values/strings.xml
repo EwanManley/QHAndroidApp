@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">queenslandhealthapp2</string>
+    <string name="Sign_In">Sign In</string>
+    <string name="show_registers">Show Registers</string>
+    <string name="download_masterfile">Download Mobile Food Vendor Register (Excel)</string>
+    <string name="Previous_page">Previous Page</string>
+    <string name="Next_page">Next Page</string>
+</resources>

@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    android:padding="16dp">
+
+    <ImageView
+        android:id="@+id/headerLogo"
+        android:layout_width="180dp"
+        android:layout_height="72dp"
+        android:src="@drawable/qld_health_logo"
+        android:contentDescription="@string/app_name"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"/>
+
+    <LinearLayout
+        android:id="@+id/tabBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/headerLogo"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="12dp">
+
+        <TextView
+            android:id="@+id/tabLogin"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="LOGIN"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"/>
+
+        <TextView
+            android:id="@+id/tabRegister"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="REGISTER"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/indicatorBar"
+        android:layout_width="0dp"
+        android:layout_height="2dp"
+        app:layout_constraintTop_toBottomOf="@id/tabBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <View
+            android:id="@+id/indicatorLogin"
+            android:layout_width="0dp"
+            android:layout_height="2dp"
+            android:layout_weight="1"
+            android:background="#2196F3"/>
+
+        <View
+            android:id="@+id/indicatorRegister"
+            android:layout_width="0dp"
+            android:layout_height="2dp"
+            android:layout_weight="1"
+            android:background="#E0E0E0"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/card"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F4F7"
+        android:padding="16dp"
+        app:layout_constraintTop_toBottomOf="@id/indicatorBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="8dp">
+
+        <LinearLayout
+            android:id="@+id/loginForm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Email"
+                android:textColor="@android:color/black"/>
+
+            <EditText
+                android:id="@+id/etLoginEmail"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:inputType="textEmailAddress"
+                android:background="@android:drawable/edit_text"
+                android:paddingHorizontal="12dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Password"
+                android:textColor="@android:color/black"
+                android:layout_marginTop="12dp"/>
+
+            <EditText
+                android:id="@+id/etLoginPassword"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:inputType="textPassword"
+                android:background="@android:drawable/edit_text"
+                android:paddingHorizontal="12dp"/>
+
+            <Button
+                android:id="@+id/btnLogin"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="GET STARTED"
+                android:textColor="@android:color/black"
+                android:backgroundTint="#2196F3"
+                android:layout_marginTop="16dp"/>
+
+            <Button
+                android:id="@+id/btnPublicLogin"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:text="Sign in as public user"
+                android:textSize="14sp"
+                android:textColor="@android:color/black"
+                android:backgroundTint="#E0E0E0"
+                android:layout_marginTop="8dp"/>
+
+            <TextView
+                android:id="@+id/linkForgot"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Forgotten Your Password?"
+                android:textColor="#1A73E8"
+                android:layout_marginTop="12dp"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/registerForm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Email"
+                android:textColor="@android:color/black"/>
+
+            <EditText
+                android:id="@+id/etRegEmail"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:inputType="textEmailAddress"
+                android:background="@android:drawable/edit_text"
+                android:paddingHorizontal="12dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Password"
+                android:textColor="@android:color/black"
+                android:layout_marginTop="12dp"/>
+
+            <EditText
+                android:id="@+id/etRegPassword"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:inputType="textPassword"
+                android:background="@android:drawable/edit_text"
+                android:paddingHorizontal="12dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Confirm Password"
+                android:textColor="@android:color/black"
+                android:layout_marginTop="12dp"/>
+
+            <EditText
+                android:id="@+id/etRegConfirm"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:inputType="textPassword"
+                android:background="@android:drawable/edit_text"
+                android:paddingHorizontal="12dp"/>
+
+            <TextView
+                android:id="@+id/roleLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Registering as"
+                android:textColor="@android:color/black"
+                android:layout_marginTop="16dp"/>
+
+            <RadioGroup
+                android:id="@+id/rgRole"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <RadioButton
+                    android:id="@+id/rbQhEmployee"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="QLD Health employee"
+                    android:checked="true"/>
+
+                <Space
+                    android:layout_width="16dp"
+                    android:layout_height="0dp"/>
+
+                <RadioButton
+                    android:id="@+id/rbCouncilMember"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Council member"/>
+            </RadioGroup>
+
+            <TextView
+                android:id="@+id/councilLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Select council"
+                android:textColor="@android:color/black"
+                android:layout_marginTop="8dp"
+                android:visibility="gone"/>
+
+            <Spinner
+                android:id="@+id/spinnerCouncil"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:visibility="gone"/>
+
+            <Button
+                android:id="@+id/btnRegister"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="CREATE ACCOUNT"
+                android:textColor="@android:color/black"
+                android:backgroundTint="#2196F3"
+                android:layout_marginTop="16dp"/>
+        </LinearLayout>
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
