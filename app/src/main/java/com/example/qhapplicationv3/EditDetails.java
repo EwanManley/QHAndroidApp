@@ -6,14 +6,8 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.HttpUrl;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+import okhttp3.*;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class EditDetails extends AppCompatActivity {
@@ -22,6 +16,8 @@ public class EditDetails extends AppCompatActivity {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final String OFFICER_EMAIL = "officer@ipswich-city-council.qld.gov.au";
     private static final String OFFICER_PASSWORD = "Passw0rd!123";
+
+    private final OkHttpClient http = new OkHttpClient();
 
     private String rowId;
     private EditText etTrading, etName, etPhone, etLicence, etReg, etExpiry, etStatus, etDesc, etVehicle, etMake, etModel, etColour, etPrimary, etSerial, etOther1, etOther2, etLga;
@@ -69,7 +65,7 @@ public class EditDetails extends AppCompatActivity {
         etStatus.setText(nz(getIntent().getStringExtra("status")));
 
         Button btnCancel = findViewById(R.id.btnCancel);
-        Button btnSave = findViewById(R.id.btnSave);
+        Button btnSave   = findViewById(R.id.btnSave);
         btnCancel.setOnClickListener(v -> finish());
         btnSave.setOnClickListener(v -> save());
     }
@@ -81,33 +77,24 @@ public class EditDetails extends AppCompatActivity {
         }
         JSONObject patch = new JSONObject();
         try {
-            patch.put("[LGA Name]", nz(etLga.getText().toString()));
-            patch.put("[* Name/s]", nz(etName.getText().toString()));
-            patch.put("[* Trading name]", nz(etTrading.getText().toString()));
+            putReq(patch, "[LGA Name]", etLga);
+            putReq(patch, "[* Name/s]", etName);
+            putReq(patch, "[* Trading name]", etTrading);
             String status = nz(etStatus.getText().toString());
             if (!status.isEmpty()) patch.put("[Status]", status);
-            patch.put("[* Phone]", nz(etPhone.getText().toString()));
-            patch.put("[* Licence number]", nz(etLicence.getText().toString()));
-            patch.put("[* Expiry date]", nz(etExpiry.getText().toString()));
-            patch.put("[* Registration number]", nz(etReg.getText().toString()));
-            String desc = nz(etDesc.getText().toString());
-            if (!desc.isEmpty()) patch.put("[* Description of the food business]", desc);
-            String vehicle = nz(etVehicle.getText().toString());
-            if (!vehicle.isEmpty()) patch.put("[Type of vehicle]", vehicle);
-            String make = nz(etMake.getText().toString());
-            if (!make.isEmpty()) patch.put("[Make]", make);
-            String model = nz(etModel.getText().toString());
-            if (!model.isEmpty()) patch.put("[Model]", model);
-            String colour = nz(etColour.getText().toString());
-            if (!colour.isEmpty()) patch.put("[Colour]", colour);
-            String primary = nz(etPrimary.getText().toString());
-            if (!primary.isEmpty()) patch.put("[Primary location of vending machine]", primary);
-            String serial = nz(etSerial.getText().toString());
-            if (!serial.isEmpty()) patch.put("[* Serial number/ identification number/mark]", serial);
-            String other1 = nz(etOther1.getText().toString());
-            if (!other1.isEmpty()) patch.put("[Other distinguishing features]", other1);
-            String other2 = nz(etOther2.getText().toString());
-            if (!other2.isEmpty()) patch.put("[Other distinguishing features ]", other2);
+            putReq(patch, "[* Phone]", etPhone);
+            putReq(patch, "[* Licence number]", etLicence);
+            putReq(patch, "[* Expiry date]", etExpiry);
+            putReq(patch, "[* Registration number]", etReg);
+            putOpt(patch, "[* Description of the food business]", etDesc);
+            putOpt(patch, "[Type of vehicle]", etVehicle);
+            putOpt(patch, "[Make]", etMake);
+            putOpt(patch, "[Model]", etModel);
+            putOpt(patch, "[Colour]", etColour);
+            putOpt(patch, "[Primary location of vending machine]", etPrimary);
+            putOpt(patch, "[* Serial number/ identification number/mark]", etSerial);
+            putOpt(patch, "[Other distinguishing features]", etOther1);
+            putOpt(patch, "[Other distinguishing features ]", etOther2);
         } catch (Exception e) {
             Toast.makeText(this, "Error building payload", Toast.LENGTH_SHORT).show();
             return;
@@ -130,15 +117,15 @@ public class EditDetails extends AppCompatActivity {
                 .url(url)
                 .addHeader("apikey", ANON)
                 .addHeader("Authorization", "Bearer " + bearer)
-                .addHeader("Accept", "application/json")
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "return=representation")
                 .patch(RequestBody.create(patch.toString(), JSON))
                 .build();
 
-        new OkHttpClient().newCall(req).enqueue(new Callback() {
+        http.newCall(req).enqueue(new Callback() {
             @Override public void onFailure(Call call, java.io.IOException e) {
-                runOnUiThread(() -> Toast.makeText(EditDetails.this, "Save failed", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(EditDetails.this,
+                        "Save failed: " + safeMsg(e), Toast.LENGTH_LONG).show());
             }
             @Override public void onResponse(Call call, Response response) {
                 try {
@@ -147,14 +134,31 @@ public class EditDetails extends AppCompatActivity {
                         obtainOfficerTokenAndPatch(patch);
                         return;
                     }
-                    final boolean ok = response.isSuccessful();
-                    final String msg = ok ? "Saved" : ("SAVE HTTP " + response.code() + (resp.isEmpty() ? "" : " " + trim(resp, 200)));
-                    runOnUiThread(() -> {
-                        Toast.makeText(EditDetails.this, msg, Toast.LENGTH_LONG).show();
-                        if (ok) finish();
-                    });
+                    if (response.isSuccessful()) {
+                        boolean hasBody = !resp.trim().isEmpty();
+                        boolean updated = hasBody && looksLikeUpdated(resp);
+                        if (!hasBody) {
+                            String cr = response.header("Content-Range", "");
+                            if (cr != null && (cr.endsWith("/0") || cr.contains("*/0"))) {
+                                runOnUiThread(() -> Toast.makeText(EditDetails.this,
+                                        "No row updated", Toast.LENGTH_LONG).show());
+                                return;
+                            }
+                        }
+                        runOnUiThread(() -> {
+                            Toast.makeText(EditDetails.this,
+                                    updated ? "Saved" : "Saved (check record)",
+                                    Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
+                    } else {
+                        runOnUiThread(() -> Toast.makeText(EditDetails.this,
+                                "SAVE HTTP " + response.code() + " " + trim(resp, 800),
+                                Toast.LENGTH_LONG).show());
+                    }
                 } catch (Exception ex) {
-                    runOnUiThread(() -> Toast.makeText(EditDetails.this, "Save parse error", Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() -> Toast.makeText(EditDetails.this,
+                            "Save parse error", Toast.LENGTH_LONG).show());
                 }
             }
         });
@@ -169,27 +173,30 @@ public class EditDetails extends AppCompatActivity {
             Request req = new Request.Builder()
                     .url(BASE + "/auth/v1/token?grant_type=password")
                     .addHeader("apikey", ANON)
-                    .addHeader("Accept", "application/json")
                     .addHeader("Content-Type", "application/json")
                     .post(RequestBody.create(body.toString(), JSON))
                     .build();
 
-            new OkHttpClient().newCall(req).enqueue(new Callback() {
+            http.newCall(req).enqueue(new Callback() {
                 @Override public void onFailure(Call call, java.io.IOException e) {
-                    runOnUiThread(() -> Toast.makeText(EditDetails.this, "Auth failed", Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() -> Toast.makeText(EditDetails.this,
+                            "Auth failed: " + safeMsg(e), Toast.LENGTH_LONG).show());
                 }
                 @Override public void onResponse(Call call, Response response) {
                     try {
                         String s = response.body() == null ? "" : response.body().string();
                         String tok = new JSONObject(s).optString("access_token", null);
                         if (TextUtils.isEmpty(tok)) {
-                            runOnUiThread(() -> Toast.makeText(EditDetails.this, "No token", Toast.LENGTH_SHORT).show());
+                            runOnUiThread(() -> Toast.makeText(EditDetails.this,
+                                    "No token " + trim(s, 200),
+                                    Toast.LENGTH_LONG).show());
                         } else {
                             UserAccount.get().setAccessToken(tok);
                             doPatch(tok, patch, true);
                         }
                     } catch (Exception ex) {
-                        runOnUiThread(() -> Toast.makeText(EditDetails.this, "Auth parse error", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() -> Toast.makeText(EditDetails.this,
+                                "Auth parse error", Toast.LENGTH_LONG).show());
                     }
                 }
             });
@@ -198,6 +205,22 @@ public class EditDetails extends AppCompatActivity {
         }
     }
 
+    private void putReq(JSONObject o, String key, EditText src) throws Exception {
+        o.put(key, nz(src.getText().toString()));
+    }
+    private void putOpt(JSONObject o, String key, EditText src) throws Exception {
+        String v = nz(src.getText().toString());
+        if (!v.isEmpty()) o.put(key, v);
+    }
+
+    private boolean looksLikeUpdated(String body) {
+        try { return new JSONArray(body).length() > 0; }
+        catch (Exception ignore) {
+            return body.trim().startsWith("{") || body.trim().startsWith("[");
+        }
+    }
+
     private String nz(String s) { return s == null ? "" : s.trim(); }
-    private String trim(String s, int n) { return s.length() <= n ? s : s.substring(0, n) + "…"; }
+    private String trim(String s, int n) { return s == null ? "" : (s.length() <= n ? s : s.substring(0, n) + "…"); }
+    private String safeMsg(Throwable t) { return t == null || t.getMessage() == null ? "" : t.getMessage(); }
 }

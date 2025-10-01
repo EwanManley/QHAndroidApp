@@ -26,6 +26,7 @@ import java.util.List;
 
 public abstract class SearchBase extends AppCompatActivity {
     protected abstract String getFieldKey();
+
     protected abstract String getScreenTitle();
 
     protected String role = "PUBLIC";
@@ -80,32 +81,41 @@ public abstract class SearchBase extends AppCompatActivity {
         rv.setHasFixedSize(true);
         adapter = new VendorList(filtered, o -> {
             Intent d = new Intent(this, VendorDetails.class);
-            d.putExtra("id", o.optString("id",""));
+            d.putExtra("id", o.optString("id", ""));
             d.putExtra("role", role);
-            d.putExtra("lga", o.optString("[LGA Name]",""));
-            d.putExtra("name", o.optString("[* Name/s]",""));
-            d.putExtra("tradingName", o.optString("[* Trading name]",""));
-            d.putExtra("status", o.optString("Status",""));
-            d.putExtra("phone", o.optString("[* Phone]",""));
-            d.putExtra("licence", o.optString("[* Licence number]",""));
-            d.putExtra("expiry", o.optString("[* Expiry date]",""));
-            d.putExtra("description", o.optString("[* Description of the food business]",""));
-            d.putExtra("vehicle", o.optString("Type of vehicle",""));
-            d.putExtra("make", o.optString("Make",""));
-            d.putExtra("model", o.optString("Model",""));
-            d.putExtra("colour", o.optString("Colour",""));
-            d.putExtra("primaryLocation", o.optString("Primary location of vending machine",""));
-            d.putExtra("serial", o.optString("[* Serial number/ identification number/mark]",""));
-            d.putExtra("other1", o.optString("Other distinguishing features",""));
-            d.putExtra("other2", o.optString("Other distinguishing features",""));
+            d.putExtra("lga", o.optString("[LGA Name]", ""));
+            d.putExtra("name", o.optString("[* Name/s]", ""));
+            d.putExtra("tradingName", o.optString("[* Trading name]", ""));
+            d.putExtra("status", o.optString("[Status]", ""));
+            d.putExtra("phone", o.optString("[* Phone]", ""));
+            d.putExtra("licence", o.optString("[* Licence number]", ""));
+            d.putExtra("expiry", o.optString("[* Expiry date]", ""));
+            d.putExtra("description", o.optString("[* Description of the food business]", ""));
+            d.putExtra("vehicle", o.optString("[Type of vehicle]", ""));
+            d.putExtra("make", o.optString("[Make]", ""));
+            d.putExtra("model", o.optString("[Model]", ""));
+            d.putExtra("colour", o.optString("[Colour]", ""));
+            d.putExtra("primaryLocation", o.optString("[Primary location of vending machine]", ""));
+            d.putExtra("serial", o.optString("[* Serial number/ identification number/mark]", ""));
+            d.putExtra("other1", o.optString("[Other distinguishing features]", ""));
+            d.putExtra("other2", o.optString("[Other distinguishing features]", ""));
             startActivity(d);
         });
         rv.setAdapter(adapter);
 
         SearchView sv = findViewById(R.id.searchView);
         sv.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-            @Override public boolean onQueryTextSubmit(String q) { filter(q); return true; }
-            @Override public boolean onQueryTextChange(String q) { filter(q); return true; }
+            @Override
+            public boolean onQueryTextSubmit(String q) {
+                filter(q);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String q) {
+                filter(q);
+                return true;
+            }
         });
 
         if ("COUNCIL".equalsIgnoreCase(role) || "QH".equalsIgnoreCase(role)) {
@@ -146,25 +156,38 @@ public abstract class SearchBase extends AppCompatActivity {
                     .build();
 
             client.newCall(req).enqueue(new Callback() {
-                @Override public void onFailure(Call call, IOException e) {
+                @Override
+                public void onFailure(Call call, IOException e) {
                     runOnUiThread(() -> {
-                        Toast.makeText(SearchBase.this, "Auth error: " + (e.getMessage()==null?"":e.getMessage()), Toast.LENGTH_LONG).show();
+                        Toast.makeText(SearchBase.this, "Auth error: " + (e.getMessage() == null ? "" : e.getMessage()), Toast.LENGTH_LONG).show();
                         fetchExternal();
                     });
                 }
-                @Override public void onResponse(Call call, Response response) throws IOException {
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
                     String raw = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String msg = "Auth HTTP " + response.code();
-                        if (!TextUtils.isEmpty(raw)) msg += ": " + (raw.length()>160?raw.substring(0,160)+"…":raw);
+                        if (!TextUtils.isEmpty(raw))
+                            msg += ": " + (raw.length() > 160 ? raw.substring(0, 160) + "…" : raw);
                         String finalMsg = msg;
-                        runOnUiThread(() -> { Toast.makeText(SearchBase.this, finalMsg, Toast.LENGTH_LONG).show(); fetchExternal(); });
+                        runOnUiThread(() -> {
+                            Toast.makeText(SearchBase.this, finalMsg, Toast.LENGTH_LONG).show();
+                            fetchExternal();
+                        });
                         return;
                     }
                     String token = null;
-                    try { token = new JSONObject(raw).optString("access_token", null); } catch (Exception ignored) {}
+                    try {
+                        token = new JSONObject(raw).optString("access_token", null);
+                    } catch (Exception ignored) {
+                    }
                     if (TextUtils.isEmpty(token)) {
-                        runOnUiThread(() -> { Toast.makeText(SearchBase.this, "No token", Toast.LENGTH_SHORT).show(); fetchExternal(); });
+                        runOnUiThread(() -> {
+                            Toast.makeText(SearchBase.this, "No token", Toast.LENGTH_SHORT).show();
+                            fetchExternal();
+                        });
                     } else {
                         UserAccount.get().setAccessToken(token);
                         runOnUiThread(() -> Toast.makeText(SearchBase.this, "Internal register", Toast.LENGTH_SHORT).show());
@@ -183,7 +206,8 @@ public abstract class SearchBase extends AppCompatActivity {
         try {
             body.put("p_limit", PAGE_LIMIT);
             body.put("p_offset", PAGE_OFFSET);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         Request.Builder b = new Request.Builder()
                 .url(BASE + rpcPath)
@@ -195,18 +219,22 @@ public abstract class SearchBase extends AppCompatActivity {
         Request req = b.post(RequestBody.create(body.toString(), JSON)).build();
 
         client.newCall(req).enqueue(new Callback() {
-            @Override public void onFailure(Call call, IOException e) {
+            @Override
+            public void onFailure(Call call, IOException e) {
                 runOnUiThread(() -> {
-                    Toast.makeText(SearchBase.this, "Network error: " + (e.getMessage()==null?"":e.getMessage()), Toast.LENGTH_LONG).show();
+                    Toast.makeText(SearchBase.this, "Network error: " + (e.getMessage() == null ? "" : e.getMessage()), Toast.LENGTH_LONG).show();
                     filtered.clear();
                     adapter.notifyDataSetChanged();
                 });
             }
-            @Override public void onResponse(Call call, Response response) throws IOException {
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
                 String raw = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     String msg = "HTTP " + response.code();
-                    if (!TextUtils.isEmpty(raw)) msg += ": " + (raw.length() > 160 ? raw.substring(0,160) + "…" : raw);
+                    if (!TextUtils.isEmpty(raw))
+                        msg += ": " + (raw.length() > 160 ? raw.substring(0, 160) + "…" : raw);
                     String finalMsg = msg;
                     runOnUiThread(() -> Toast.makeText(SearchBase.this, finalMsg, Toast.LENGTH_LONG).show());
                     return;
@@ -228,25 +256,43 @@ public abstract class SearchBase extends AppCompatActivity {
             }
         });
     }
-
     protected void filter(String q) {
         String s = q == null ? "" : q.trim().toLowerCase();
         filtered.clear();
         for (JSONObject o : all) {
-            String key = getFieldKey();
-            if (TextUtils.isEmpty(key)) {
-                String t1 = o.optString("[* Trading name]","").toLowerCase();
-                String t2 = o.optString("[* Registration number]","").toLowerCase();
-                String t3 = o.optString("[* Licence number]","").toLowerCase();
-                String t4 = o.optString("[* Name/s]","").toLowerCase();
-                if (s.isEmpty() || t1.contains(s) || t2.contains(s) || t3.contains(s) || t4.contains(s)) {
-                    filtered.add(o);
+            boolean match = false;
+            if ("PUBLIC".equalsIgnoreCase(role)) {
+                String[] cols = {
+                        "[LGA Name]",
+                        "[* Phone]",
+                        "[* Trading name]",
+                        "[* Registration number]",
+                        "[* Licence number]",
+                        "[* Name/s]",
+                        "[* Expiry date]"
+                };
+                for (String col : cols) {
+                    String v = o.optString(col, "");
+                    if (!TextUtils.isEmpty(v) && v.toLowerCase().contains(s)) {
+                        match = true;
+                        break;
+                    }
                 }
             } else {
-                String t = o.optString(key,"");
-                if (s.isEmpty() || (t != null && t.toLowerCase().contains(s))) {
-                    filtered.add(o);
+                JSONArray names = o.names();
+                if (names != null) {
+                    for (int i = 0; i < names.length(); i++) {
+                        String key = names.optString(i, "");
+                        String v = o.optString(key, "");
+                        if (!TextUtils.isEmpty(v) && v.toLowerCase().contains(s)) {
+                            match = true;
+                            break;
+                        }
+                    }
                 }
+            }
+            if (s.isEmpty() || match) {
+                filtered.add(o);
             }
         }
         adapter.notifyDataSetChanged();
