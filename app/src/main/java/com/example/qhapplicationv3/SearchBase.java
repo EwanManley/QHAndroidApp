@@ -26,7 +26,6 @@ import java.util.List;
 
 public abstract class SearchBase extends AppCompatActivity {
     protected abstract String getFieldKey();
-
     protected abstract String getScreenTitle();
 
     protected String role = "PUBLIC";
@@ -47,10 +46,6 @@ public abstract class SearchBase extends AppCompatActivity {
 
     private static final int PAGE_LIMIT = 1000;
     private static final int PAGE_OFFSET = 0;
-
-    private static final String OFFICER_EMAIL = "officer@ipswich-city-council.qld.gov.au";
-    private static final String OFFICER_PASSWORD = "Passw0rd!123";
-    private static final String AUTH_TOKEN_PATH = "/auth/v1/token?grant_type=password";
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -98,7 +93,6 @@ public abstract class SearchBase extends AppCompatActivity {
             d.putExtra("primaryLocation", o.optString("[Primary location of vending machine]", ""));
             d.putExtra("serial", o.optString("[* Serial number/ identification number/mark]", ""));
             d.putExtra("other1", o.optString("[Other distinguishing features]", ""));
-            d.putExtra("other2", o.optString("[Other distinguishing features]", ""));
             startActivity(d);
         });
         rv.setAdapter(adapter);
@@ -121,11 +115,11 @@ public abstract class SearchBase extends AppCompatActivity {
         if ("COUNCIL".equalsIgnoreCase(role) || "QH".equalsIgnoreCase(role)) {
             String token = UserAccount.get().getAccessToken();
             if (!TextUtils.isEmpty(token)) {
-                Toast.makeText(this, "Using session token (internal)", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Internal register", Toast.LENGTH_SHORT).show();
                 fetchInternalWithToken(token);
             } else {
-                Toast.makeText(this, "Signing as fallback officer (internal)", Toast.LENGTH_SHORT).show();
-                fetchInternalViaFallbackOfficer();
+                Toast.makeText(this, "Loading public register", Toast.LENGTH_SHORT).show();
+                fetchExternal();
             }
         } else {
             Toast.makeText(this, "Loading public register", Toast.LENGTH_SHORT).show();
@@ -139,66 +133,6 @@ public abstract class SearchBase extends AppCompatActivity {
 
     private void fetchInternalWithToken(String bearerToken) {
         postRpc(RPC_INTERNAL, bearerToken);
-    }
-
-    private void fetchInternalViaFallbackOfficer() {
-        try {
-            JSONObject body = new JSONObject();
-            body.put("email", OFFICER_EMAIL);
-            body.put("password", OFFICER_PASSWORD);
-
-            Request req = new Request.Builder()
-                    .url(BASE + AUTH_TOKEN_PATH)
-                    .addHeader("apikey", ANON)
-                    .addHeader("Accept", "application/json")
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(body.toString(), JSON))
-                    .build();
-
-            client.newCall(req).enqueue(new Callback() {
-                @Override
-                public void onFailure(Call call, IOException e) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(SearchBase.this, "Auth error: " + (e.getMessage() == null ? "" : e.getMessage()), Toast.LENGTH_LONG).show();
-                        fetchExternal();
-                    });
-                }
-
-                @Override
-                public void onResponse(Call call, Response response) throws IOException {
-                    String raw = response.body() != null ? response.body().string() : "";
-                    if (!response.isSuccessful()) {
-                        String msg = "Auth HTTP " + response.code();
-                        if (!TextUtils.isEmpty(raw))
-                            msg += ": " + (raw.length() > 160 ? raw.substring(0, 160) + "…" : raw);
-                        String finalMsg = msg;
-                        runOnUiThread(() -> {
-                            Toast.makeText(SearchBase.this, finalMsg, Toast.LENGTH_LONG).show();
-                            fetchExternal();
-                        });
-                        return;
-                    }
-                    String token = null;
-                    try {
-                        token = new JSONObject(raw).optString("access_token", null);
-                    } catch (Exception ignored) {
-                    }
-                    if (TextUtils.isEmpty(token)) {
-                        runOnUiThread(() -> {
-                            Toast.makeText(SearchBase.this, "No token", Toast.LENGTH_SHORT).show();
-                            fetchExternal();
-                        });
-                    } else {
-                        UserAccount.get().setAccessToken(token);
-                        runOnUiThread(() -> Toast.makeText(SearchBase.this, "Internal register", Toast.LENGTH_SHORT).show());
-                        postRpc(RPC_INTERNAL, token);
-                    }
-                }
-            });
-        } catch (Exception e) {
-            Toast.makeText(this, "Auth build error", Toast.LENGTH_SHORT).show();
-            fetchExternal();
-        }
     }
 
     private void postRpc(String rpcPath, String bearerToken) {
@@ -256,6 +190,7 @@ public abstract class SearchBase extends AppCompatActivity {
             }
         });
     }
+
     protected void filter(String q) {
         String s = q == null ? "" : q.trim().toLowerCase();
         filtered.clear();

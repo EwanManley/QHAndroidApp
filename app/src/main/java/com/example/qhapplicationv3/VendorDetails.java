@@ -1,9 +1,10 @@
 package com.example.qhapplicationv3;
 
-import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -12,23 +13,17 @@ import androidx.appcompat.app.AppCompatActivity;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.HttpUrl;
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
-import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.json.JSONObject;
 
 public class VendorDetails extends AppCompatActivity {
     private static final String BASE = "https://mpvttjjpwghyydfumqxi.supabase.co";
     private static final String ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wdnR0ampwd2doeXlkZnVtcXhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNTAzODcsImV4cCI6MjA3MjYyNjM4N30.IUkEutAeR0fDZswjXXduZu2CyZJ5eNt9KvCaF0ax9DE";
-    private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-    private static final String OFFICER_EMAIL = "officer@ipswich-city-council.qld.gov.au";
-    private static final String OFFICER_PASSWORD = "Passw0rd!123";
 
     private String rowId;
     private String role;
-    private final OkHttpClient client = new OkHttpClient();
+    private String council;
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -38,6 +33,7 @@ public class VendorDetails extends AppCompatActivity {
         if (btnBack != null) btnBack.setOnClickListener(v -> finish());
 
         role = UserAccount.get().getRole();
+        council = UserAccount.get().getCouncil();
         boolean isPublic = role == null || role.equalsIgnoreCase("PUBLIC");
 
         Intent intent = getIntent();
@@ -61,6 +57,7 @@ public class VendorDetails extends AppCompatActivity {
         setField(R.id.fieldSerial, "Serial number/ identification number/mark:", intent.getStringExtra("serial"), true);
         setField(R.id.fieldOther2, "Other distinguishing features:", intent.getStringExtra("other2"), true);
 
+        Button btnEdit = findViewById(R.id.btnEdit);
         if (isPublic) {
             hide(R.id.fieldStatus);
             show(R.id.fieldExpiry);
@@ -73,6 +70,7 @@ public class VendorDetails extends AppCompatActivity {
             hide(R.id.fieldPrimaryLocation);
             hide(R.id.fieldSerial);
             hide(R.id.fieldOther2);
+            if (btnEdit != null) btnEdit.setVisibility(View.GONE);
         } else {
             show(R.id.fieldStatus);
             show(R.id.fieldExpiry);
@@ -85,42 +83,38 @@ public class VendorDetails extends AppCompatActivity {
             show(R.id.fieldPrimaryLocation);
             show(R.id.fieldSerial);
             show(R.id.fieldOther2);
-        }
-
-        Button btnEdit = findViewById(R.id.btnEdit);
-        Button btnDelete = findViewById(R.id.btnDelete);
-        if (btnEdit != null) btnEdit.setVisibility(isPublic ? View.GONE : View.VISIBLE);
-        if (btnDelete != null) btnDelete.setVisibility(isPublic ? View.GONE : View.VISIBLE);
-
-        if (!isPublic) {
+            if (btnEdit != null) btnEdit.setVisibility(View.VISIBLE);
             if (btnEdit != null) btnEdit.setOnClickListener(v -> {
                 Intent e = new Intent(this, EditDetails.class);
                 e.putExtras(getIntent());
                 startActivity(e);
             });
-            if (btnDelete != null) btnDelete.setOnClickListener(v -> confirmDelete());
         }
     }
 
-    private void confirmDelete() {
-        new AlertDialog.Builder(this)
-                .setTitle("Delete vendor")
-                .setMessage("Are you sure you want to delete this record?")
-                .setPositiveButton("Delete", (d, w) -> deleteRow(false))
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void deleteRow(boolean alreadyRetried) {
+    public static void deleteVendor(Context ctx, String rowId, String recordLga, Runnable onSuccess) {
         if (rowId == null || rowId.isEmpty()) {
-            Toast.makeText(this, "Missing id", Toast.LENGTH_SHORT).show();
+            Toast.makeText(ctx, "Missing id", Toast.LENGTH_SHORT).show();
             return;
         }
         String token = UserAccount.get().getAccessToken();
-        if (TextUtils.isEmpty(token)) {
-            obtainOfficerTokenAndDelete();
-            return;
+        String role = UserAccount.get().getRole();
+        String council = UserAccount.get().getCouncil();
+
+        if (TextUtils.isEmpty(token)) { Toast.makeText(ctx, "Please sign in again", Toast.LENGTH_SHORT).show(); return; }
+        if ("PUBLIC".equalsIgnoreCase(role)) { Toast.makeText(ctx, "Not permitted", Toast.LENGTH_SHORT).show(); return; }
+
+        boolean allowed = true;
+        if ("COUNCIL".equalsIgnoreCase(role) && !TextUtils.isEmpty(council)) {
+            String rec = recordLga == null ? "" : recordLga;
+            boolean okExact = council.equals(rec);
+            boolean okSlug = council.equalsIgnoreCase(slug(rec));
+            boolean okDisplay = rec.equalsIgnoreCase(council.replace("-", " "));
+            Log.d("VendorDetails", "delete guard councilStored=" + council + " recordLga=" + rec + " exact=" + okExact + " slug=" + okSlug + " display=" + okDisplay);
+            allowed = okExact || okSlug || okDisplay;
         }
+        if (!allowed) { Toast.makeText(ctx, "Can only delete from " + council, Toast.LENGTH_LONG).show(); return; }
+
         HttpUrl url = HttpUrl.parse(BASE + "/rest/v1/qh_register")
                 .newBuilder()
                 .addQueryParameter("id", "eq." + rowId)
@@ -133,65 +127,32 @@ public class VendorDetails extends AppCompatActivity {
                 .delete()
                 .build();
 
-        client.newCall(req).enqueue(new Callback() {
+        new OkHttpClient().newCall(req).enqueue(new Callback() {
             @Override public void onFailure(Call call, java.io.IOException e) {
-                runOnUiThread(() -> Toast.makeText(VendorDetails.this, "Delete failed", Toast.LENGTH_SHORT).show());
+                new android.os.Handler(ctx.getMainLooper()).post(() ->
+                        Toast.makeText(ctx, "Delete failed", Toast.LENGTH_SHORT).show());
             }
             @Override public void onResponse(Call call, Response response) {
-                if ((response.code() == 401 || response.code() == 403) && !alreadyRetried) {
-                    obtainOfficerTokenAndDelete();
-                    return;
-                }
-                runOnUiThread(() -> {
+                new android.os.Handler(ctx.getMainLooper()).post(() -> {
                     if (response.isSuccessful()) {
-                        Toast.makeText(VendorDetails.this, "Deleted", Toast.LENGTH_SHORT).show();
-                        finish();
+                        Toast.makeText(ctx, "Deleted", Toast.LENGTH_SHORT).show();
+                        if (onSuccess != null) onSuccess.run();
                     } else if (response.code() == 404) {
-                        Toast.makeText(VendorDetails.this, "Not found", Toast.LENGTH_LONG).show();
+                        Toast.makeText(ctx, "Not found", Toast.LENGTH_LONG).show();
                     } else {
-                        Toast.makeText(VendorDetails.this, "Delete HTTP " + response.code(), Toast.LENGTH_LONG).show();
+                        Toast.makeText(ctx, "Delete HTTP " + response.code(), Toast.LENGTH_LONG).show();
                     }
                 });
             }
         });
     }
 
-    private void obtainOfficerTokenAndDelete() {
-        try {
-            JSONObject body = new JSONObject();
-            body.put("email", OFFICER_EMAIL);
-            body.put("password", OFFICER_PASSWORD);
-
-            Request req = new Request.Builder()
-                    .url(BASE + "/auth/v1/token?grant_type=password")
-                    .addHeader("apikey", ANON)
-                    .addHeader("Accept", "application/json")
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(body.toString(), JSON))
-                    .build();
-
-            client.newCall(req).enqueue(new Callback() {
-                @Override public void onFailure(Call call, java.io.IOException e) {
-                    runOnUiThread(() -> Toast.makeText(VendorDetails.this, "Auth failed", Toast.LENGTH_SHORT).show());
-                }
-                @Override public void onResponse(Call call, Response response) {
-                    try {
-                        String s = response.body() == null ? "" : response.body().string();
-                        String tok = new JSONObject(s).optString("access_token", null);
-                        if (tok == null || tok.isEmpty()) {
-                            runOnUiThread(() -> Toast.makeText(VendorDetails.this, "No token", Toast.LENGTH_SHORT).show());
-                        } else {
-                            UserAccount.get().setAccessToken(tok);
-                            deleteRow(true);
-                        }
-                    } catch (Exception ex) {
-                        runOnUiThread(() -> Toast.makeText(VendorDetails.this, "Auth parse error", Toast.LENGTH_SHORT).show());
-                    }
-                }
-            });
-        } catch (Exception e) {
-            Toast.makeText(this, "Auth build error", Toast.LENGTH_SHORT).show();
-        }
+    private static String slug(String s) {
+        if (s == null) return "";
+        String t = s.trim().toLowerCase();
+        t = t.replaceAll("[^a-z0-9]+", "-");
+        t = t.replaceAll("^-+|-+$", "");
+        return t;
     }
 
     private void setField(int id, String label, String value, boolean optional) {
@@ -202,7 +163,20 @@ public class VendorDetails extends AppCompatActivity {
         else if (v.isEmpty()) tv.setText(label + " -");
         else tv.setText(label + " " + v);
     }
-    private String clean(String s) { if (s == null) return ""; String t = s.trim(); return t.equalsIgnoreCase("null") ? "" : t; }
-    private void hide(int id) { View v = findViewById(id); if (v != null) v.setVisibility(View.GONE); }
-    private void show(int id) { View v = findViewById(id); if (v != null) v.setVisibility(View.VISIBLE); }
+
+    private String clean(String s) {
+        if (s == null) return "";
+        String t = s.trim();
+        return t.equalsIgnoreCase("null") ? "" : t;
+    }
+
+    private void hide(int id) {
+        View v = findViewById(id);
+        if (v != null) v.setVisibility(View.GONE);
+    }
+
+    private void show(int id) {
+        View v = findViewById(id);
+        if (v != null) v.setVisibility(View.VISIBLE);
+    }
 }

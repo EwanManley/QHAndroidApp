@@ -1,5 +1,6 @@
 package com.example.qhapplicationv3;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -50,9 +51,7 @@ public class Authentication extends AppCompatActivity {
         etLoginPassword = findViewById(R.id.etLoginPassword);
 
         Button btnPublicLogin = findViewById(R.id.btnPublicLogin);
-        btnPublicLogin.setOnClickListener(v -> {
-            goToVendors("public@guest", "PUBLIC", null, null);
-        });
+        btnPublicLogin.setOnClickListener(v -> goToFiltersAsPublic());
 
         Button btnRegister = findViewById(R.id.btnRegister);
         etRegEmail = findViewById(R.id.etRegEmail);
@@ -178,18 +177,21 @@ public class Authentication extends AppCompatActivity {
             councilSel = sel.toString();
         }
 
-        final String selectedCouncil = councilSel;
         String role = councilRole ? "COUNCIL" : "QH";
 
-        toast("Registering…");
-        UserAccount.register(this, email, pass, role, selectedCouncil, (ok, message, profile) -> {
+        UserAccount.register(this, email, pass, role, councilSel, (ok, message, profile) -> {
             runOnUiThread(() -> {
                 if (!ok) {
                     toast(message == null ? "Registration failed" : message);
                     return;
                 }
-                toast("Registered");
-                goToVendors(email, role, selectedCouncil, UserAccount.get().getAccessToken());
+                UserAccount.get().clearSession(this);
+                new AlertDialog.Builder(this)
+                        .setTitle("Account created")
+                        .setMessage("Your account has been created. Please sign in to continue.")
+                        .setPositiveButton("OK", (d, w) -> finishToSplash())
+                        .setCancelable(false)
+                        .show();
             });
         });
     }
@@ -199,27 +201,33 @@ public class Authentication extends AppCompatActivity {
         String pass = txt(etLoginPassword);
         if (TextUtils.isEmpty(email) || TextUtils.isEmpty(pass)) { toast("Enter email and password"); return; }
 
-        toast("Signing in…");
         UserAccount.login(this, email, pass, (ok, message, profile) -> {
             runOnUiThread(() -> {
                 if (!ok) {
                     toast(message == null ? "Login failed" : message);
                     return;
                 }
-                String role = UserAccount.get().getRole();
-                String council = UserAccount.get().getCouncil();
-                goToVendors(email, role, council, UserAccount.get().getAccessToken());
+                Intent i = new Intent(this, SearchFilters.class);
+                startActivity(i);
+                finish();
             });
         });
     }
 
-    private void goToVendors(String email, String role, String council, String accessToken) {
-        UserAccount.get().setEmail(email);
-        UserAccount.get().setRole(role);
-        UserAccount.get().setCouncil(council);
-        UserAccount.get().setAccessToken(accessToken);
+    private void goToFiltersAsPublic() {
+        UserAccount.get().setEmail("public@guest");
+        UserAccount.get().setRole("PUBLIC");
+        UserAccount.get().setCouncil(null);
+        UserAccount.get().setAccessToken(null);
         UserAccount.get().saveSession(this);
         Intent i = new Intent(this, SearchFilters.class);
+        startActivity(i);
+        finish();
+    }
+
+    private void finishToSplash() {
+        Intent i = new Intent(this, MainLanding.class);
+        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(i);
         finish();
     }

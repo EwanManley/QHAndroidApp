@@ -49,14 +49,6 @@
 
         <Space android:layout_width="8dp" android:layout_height="0dp"/>
 
-        <Button
-            android:id="@+id/btnDelete"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="Delete"
-            android:textSize="12sp"
-            android:backgroundTint="#E57373"
-            android:textColor="@android:color/black"/>
     </LinearLayout>
 
     <ScrollView

@@ -1,14 +1,17 @@
 package com.example.qhapplicationv3;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.appcompat.app.AppCompatActivity;
-
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.MediaType;
@@ -16,7 +19,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-
 import org.json.JSONObject;
 
 public class AddVendor extends AppCompatActivity {
@@ -26,17 +28,22 @@ public class AddVendor extends AppCompatActivity {
     private static final String ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wdnR0ampwd2doeXlkZnVtcXhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNTAzODcsImV4cCI6MjA3MjYyNjM4N30.IUkEutAeR0fDZswjXXduZu2CyZJ5eNt9KvCaF0ax9DE";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-    private static final String OFFICER_EMAIL = "officer@ipswich-city-council.qld.gov.au";
-    private static final String OFFICER_PASSWORD = "Passw0rd!123";
-
     private final OkHttpClient http = new OkHttpClient();
 
-    private EditText etLga, etName, etTrading, etPhone, etLicence, etExpiry, etReg, etDesc, etVehicle, etMake, etModel, etColour, etPrimary, etSerial, etOther1, etOther2, etStatus;
+    private EditText etLga, etName, etTrading, etPhone, etLicence, etExpiry, etReg, etDesc, etVehicle, etMake, etModel, etColour, etPrimary, etSerial, etOther1, etStatus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.edit_page);
+
+        if ("QH".equalsIgnoreCase(UserAccount.get().getRole())) {
+            setContentView(R.layout.edit_qh_page);
+        } else {
+            setContentView(R.layout.edit_page);
+        }
+
+        TextView tvFormTitle = findViewById(R.id.tvFormTitle);
+        TextView tvLgaContext = findViewById(R.id.tvLgaContext);
 
         etLga = findViewById(R.id.etLga);
         etName = findViewById(R.id.etName);
@@ -53,8 +60,39 @@ public class AddVendor extends AppCompatActivity {
         etPrimary = findViewById(R.id.etPrimary);
         etSerial = findViewById(R.id.etSerial);
         etOther1 = findViewById(R.id.etOther1);
-        etOther2 = findViewById(R.id.etOther2);
         etStatus = findViewById(R.id.etStatus);
+        Spinner spLga = findViewById(R.id.spLga);
+
+        String role = UserAccount.get().getRole();
+        String council = UserAccount.get().getCouncil();
+
+        if (tvFormTitle != null) tvFormTitle.setText("Add vendor");
+        String contextTxt = "QH".equalsIgnoreCase(role) ? "Adding to: Choose council" : "Adding to: " + CouncilLookup.toDisplay(council);
+        if (tvLgaContext != null) tvLgaContext.setText(contextTxt);
+
+        if ("COUNCIL".equalsIgnoreCase(role) && !TextUtils.isEmpty(council)) {
+            if (etLga != null) {
+                etLga.setText(CouncilLookup.toDisplay(council));
+                etLga.setFocusable(false);
+                etLga.setEnabled(false);
+                etLga.setClickable(false);
+            }
+            if (spLga != null) spLga.setVisibility(View.GONE);
+        } else if ("QH".equalsIgnoreCase(role)) {
+            if (spLga != null) {
+                java.util.List<String> councils = CouncilLookup.all();
+                android.widget.ArrayAdapter<String> a = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, councils);
+                spLga.setAdapter(a);
+                spLga.setVisibility(View.VISIBLE);
+                if (etLga != null) etLga.setVisibility(View.GONE);
+                spLga.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int pos, long id) {
+                        if (etLga != null) etLga.setText(councils.get(pos));
+                    }
+                    @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
+                });
+            }
+        }
 
         Button btnCancel = findViewById(R.id.btnCancel);
         Button btnSave = findViewById(R.id.btnSave);
@@ -62,7 +100,30 @@ public class AddVendor extends AppCompatActivity {
         btnSave.setOnClickListener(v -> beginCreate());
     }
 
+
+    private void showCouncilPicker() {
+        java.util.List<String> councils = CouncilLookup.all();
+        String[] arr = councils.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+                .setTitle("Select council")
+                .setItems(arr, (d, which) -> etLga.setText(arr[which]))
+                .show();
+    }
+
     private void beginCreate() {
+        String role = UserAccount.get().getRole();
+        String council = UserAccount.get().getCouncil();
+        String bearer = UserAccount.get().getAccessToken();
+
+        if (TextUtils.isEmpty(bearer)) {
+            Toast.makeText(this, "Please sign in again", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if ("PUBLIC".equalsIgnoreCase(role)) {
+            Toast.makeText(this, "Not permitted", Toast.LENGTH_LONG).show();
+            return;
+        }
+
         String lga = nz(etLga.getText().toString());
         String name = nz(etName.getText().toString());
         String trading = nz(etTrading.getText().toString());
@@ -71,11 +132,24 @@ public class AddVendor extends AppCompatActivity {
         String expiry = nz(etExpiry.getText().toString());
         String reg = nz(etReg.getText().toString());
 
+        Log.d(TAG, "role=" + role + " councilStored=" + council + " lgaTyped=" + lga + " slugTyped=" + slug(lga));
+
         if (TextUtils.isEmpty(lga) || TextUtils.isEmpty(name) || TextUtils.isEmpty(trading)
                 || TextUtils.isEmpty(phone) || TextUtils.isEmpty(licence)
                 || TextUtils.isEmpty(expiry) || TextUtils.isEmpty(reg)) {
             Toast.makeText(this, "Fill all required fields", Toast.LENGTH_SHORT).show();
             return;
+        }
+
+        if ("COUNCIL".equalsIgnoreCase(role) && !TextUtils.isEmpty(council)) {
+            boolean okExact = council.equals(lga);
+            boolean okSlug = council.equalsIgnoreCase(slug(lga));
+            boolean okDisplay = lga.equalsIgnoreCase(council.replace("-", " "));
+            Log.d(TAG, "councilMatch exact=" + okExact + " slug=" + okSlug + " display=" + okDisplay);
+            if (!(okExact || okSlug || okDisplay)) {
+                Toast.makeText(this, "LGA must be " + council, Toast.LENGTH_LONG).show();
+                return;
+            }
         }
 
         JSONObject body = new JSONObject();
@@ -116,115 +190,59 @@ public class AddVendor extends AppCompatActivity {
             String other1 = nz(etOther1.getText().toString());
             if (!other1.isEmpty()) body.put("[Other distinguishing features]", other1);
 
-            String other2 = nz(etOther2.getText().toString());
-            if (!other2.isEmpty()) body.put("[Other distinguishing features ]", other2);
-
         } catch (Exception e) {
             Toast.makeText(this, "Payload error", Toast.LENGTH_SHORT).show();
             return;
         }
+
         Log.d(TAG, "JSON payload: " + body.toString());
-        obtainOfficerTokenAndCreate(body);
+        doCreate(bearer, body);
     }
 
-
-    private void doCreate(String bearer, JSONObject body, boolean alreadyRetried) {
-        Log.d(TAG, "Token being used for POST: " + bearer);
+    private void doCreate(String bearer, JSONObject body) {
         Request req = new Request.Builder()
                 .url(BASE + "/rest/v1/qh_register")
                 .addHeader("apikey", ANON)
                 .addHeader("Authorization", "Bearer " + bearer)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "return=representation")
-
                 .post(RequestBody.create(body.toString(), JSON))
                 .build();
 
         http.newCall(req).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, java.io.IOException e) {
-                runOnUiThread(() -> Toast.makeText(AddVendor.this,
-                        "Create failed: " + safeMsg(e), Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> Toast.makeText(AddVendor.this, "Create failed: " + safeMsg(e), Toast.LENGTH_LONG).show());
             }
 
             @Override
             public void onResponse(Call call, Response response) {
                 try {
                     String resp = response.body() == null ? "" : response.body().string();
-                    Log.d(TAG, "HTTP code: " + response.code());
-                    Log.d(TAG, "Response body: " + resp);
-                    if ((response.code() == 401 || response.code() == 403) && !alreadyRetried) {
-                        obtainOfficerTokenAndCreate(body);
+                    if (!response.isSuccessful()) {
+                        runOnUiThread(() -> Toast.makeText(AddVendor.this, "CREATE HTTP " + response.code() + " " + trim(resp, 400), Toast.LENGTH_LONG).show());
                         return;
                     }
-                    boolean ok = response.isSuccessful();
-                    String msg = ok ? "Created"
-                            : ("CREATE HTTP " + response.code() + " " + trim(resp, 400));
                     runOnUiThread(() -> {
-                        Toast.makeText(AddVendor.this, msg, Toast.LENGTH_LONG).show();
-                        if (ok) finish();
+                        Toast.makeText(AddVendor.this, "Created", Toast.LENGTH_LONG).show();
+                        finish();
                     });
                 } catch (Exception ex) {
-                    runOnUiThread(() -> Toast.makeText(AddVendor.this,
-                            "Create parse error", Toast.LENGTH_LONG).show());
+                    runOnUiThread(() -> Toast.makeText(AddVendor.this, "Create parse error", Toast.LENGTH_LONG).show());
                 }
             }
         });
     }
 
-    private void obtainOfficerTokenAndCreate(JSONObject body) {
-        try {
-            JSONObject login = new JSONObject();
-            login.put("email", OFFICER_EMAIL);
-            login.put("password", OFFICER_PASSWORD);
-
-            Request req = new Request.Builder()
-                    .url(BASE + "/auth/v1/token?grant_type=password")
-                    .addHeader("apikey", ANON)
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(login.toString(), JSON))
-                    .build();
-
-            http.newCall(req).enqueue(new Callback() {
-                @Override
-                public void onFailure(Call call, java.io.IOException e) {
-                    runOnUiThread(() -> Toast.makeText(AddVendor.this,
-                            "Auth failed: " + safeMsg(e), Toast.LENGTH_LONG).show());
-                }
-
-                @Override
-                public void onResponse(Call call, Response response) {
-                    try {
-                        String s = response.body() == null ? "" : response.body().string();
-                        Log.d(TAG, "Officer token response: " + s);
-                        String tok = new JSONObject(s).optString("access_token", null);
-                        if (TextUtils.isEmpty(tok)) {
-                            runOnUiThread(() -> Toast.makeText(AddVendor.this,
-                                    "No token " + trim(s, 200), Toast.LENGTH_LONG).show());
-                        } else {
-                            UserAccount.get().setAccessToken(tok);
-                            doCreate(tok, body, true);
-                        }
-                    } catch (Exception ex) {
-                        runOnUiThread(() -> Toast.makeText(AddVendor.this,
-                                "Auth parse error", Toast.LENGTH_LONG).show());
-                    }
-                }
-            });
-        } catch (Exception e) {
-            Toast.makeText(this, "Auth build error", Toast.LENGTH_LONG).show();
-        }
+    private static String slug(String s) {
+        if (s == null) return "";
+        String t = s.trim().toLowerCase();
+        t = t.replaceAll("[^a-z0-9]+", "-");
+        t = t.replaceAll("^-+|-+$", "");
+        return t;
     }
 
-    private String nz(String s) {
-        return s == null ? "" : s.trim();
-    }
-
-    private String trim(String s, int n) {
-        return s == null ? "" : (s.length() <= n ? s : s.substring(0, n) + "…");
-    }
-
-    private String safeMsg(Throwable t) {
-        return t == null || t.getMessage() == null ? "" : t.getMessage();
-    }
+    private String nz(String s) { return s == null ? "" : s.trim(); }
+    private String trim(String s, int n) { return s == null ? "" : (s.length() <= n ? s : s.substring(0, n) + "…"); }
+    private String safeMsg(Throwable t) { return t == null || t.getMessage() == null ? "" : t.getMessage(); }
 }
