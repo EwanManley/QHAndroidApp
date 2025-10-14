@@ -5,6 +5,8 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
@@ -36,13 +38,7 @@ public class EditDetails extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        String roleRaw = String.valueOf(UserAccount.get().getRole());
-        String role = roleRaw == null ? "" : roleRaw.trim().toUpperCase();
-
-        boolean isQH = role.equals("QH") || role.equals("QLD") || role.equals("QLD_HEALTH") || role.equals("QUEENSLAND_HEALTH");
-        boolean isCouncil = role.equals("COUNCIL");
-
-        if (isQH) {
+        if ("QH".equalsIgnoreCase(UserAccount.get().getRole())) {
             setContentView(R.layout.edit_qh_page);
         } else {
             setContentView(R.layout.edit_page);
@@ -69,71 +65,62 @@ public class EditDetails extends AppCompatActivity {
         etSerial = findViewById(R.id.etSerial);
         etOther1 = findViewById(R.id.etOther1);
         etStatus = findViewById(R.id.etStatus);
-        android.widget.Spinner spLga = findViewById(R.id.spLga);
 
+        Spinner spLga = findViewById(R.id.spLga);
+
+        if ("QH".equalsIgnoreCase(UserAccount.get().getRole())) {
+            if (spLga != null && etLga != null) {
+                java.util.List<String> councils = CouncilLookup.all();
+                ArrayAdapter<String> a = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, councils);
+                a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spLga.setAdapter(a);
+                spLga.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                        etLga.setText(councils.get(pos));
+                    }
+                    @Override public void onNothingSelected(AdapterView<?> parent) { }
+                });
+            }
+        }
+
+        String role = UserAccount.get().getRole();
         String council = UserAccount.get().getCouncil();
 
         if (tvFormTitle != null) tvFormTitle.setText("Edit vendor");
-        if (tvLgaContext != null) {
-            tvLgaContext.setText(isQH ? "Editing in: Choose council" : "Editing in: " + CouncilLookup.toDisplay(council));
-        }
+        String contextTxt = "QH".equalsIgnoreCase(role)
+                ? "Editing in: Choose council"
+                : "Editing in: " + CouncilLookup.toDisplay(council);
+        if (tvLgaContext != null) tvLgaContext.setText(contextTxt);
 
-        if (etLga != null) etLga.setText(nz(getIntent().getStringExtra("lga")));
-        if (etName != null) etName.setText(nz(getIntent().getStringExtra("name")));
-        if (etTrading != null) etTrading.setText(nz(getIntent().getStringExtra("tradingName")));
-        if (etPhone != null) etPhone.setText(nz(getIntent().getStringExtra("phone")));
-        if (etLicence != null) etLicence.setText(nz(getIntent().getStringExtra("licence")));
-        if (etExpiry != null) etExpiry.setText(nz(getIntent().getStringExtra("expiry")));
-        if (etReg != null) etReg.setText(nz(getIntent().getStringExtra("registration")));
-        if (etDesc != null) etDesc.setText(nz(getIntent().getStringExtra("description")));
-        if (etVehicle != null) etVehicle.setText(nz(getIntent().getStringExtra("vehicle")));
-        if (etMake != null) etMake.setText(nz(getIntent().getStringExtra("make")));
-        if (etModel != null) etModel.setText(nz(getIntent().getStringExtra("model")));
-        if (etColour != null) etColour.setText(nz(getIntent().getStringExtra("colour")));
-        if (etPrimary != null) etPrimary.setText(nz(getIntent().getStringExtra("primaryLocation")));
-        if (etSerial != null) etSerial.setText(nz(getIntent().getStringExtra("serial")));
-        if (etOther1 != null) etOther1.setText(nz(getIntent().getStringExtra("other1")));
-        if (etStatus != null) etStatus.setText(nz(getIntent().getStringExtra("status")));
+        etLga.setText(nz(getIntent().getStringExtra("lga")));
+        etName.setText(nz(getIntent().getStringExtra("name")));
+        etTrading.setText(nz(getIntent().getStringExtra("tradingName")));
+        etPhone.setText(nz(getIntent().getStringExtra("phone")));
+        etLicence.setText(nz(getIntent().getStringExtra("licence")));
+        etExpiry.setText(nz(getIntent().getStringExtra("expiry")));
+        etReg.setText(nz(getIntent().getStringExtra("registration")));
+        etDesc.setText(nz(getIntent().getStringExtra("description")));
+        etVehicle.setText(nz(getIntent().getStringExtra("vehicle")));
+        etMake.setText(nz(getIntent().getStringExtra("make")));
+        etModel.setText(nz(getIntent().getStringExtra("model")));
+        etColour.setText(nz(getIntent().getStringExtra("colour")));
+        etPrimary.setText(nz(getIntent().getStringExtra("primaryLocation")));
+        etSerial.setText(nz(getIntent().getStringExtra("serial")));
+        etOther1.setText(nz(getIntent().getStringExtra("other1")));
+        etStatus.setText(nz(getIntent().getStringExtra("status")));
 
-        if (isCouncil && !TextUtils.isEmpty(council)) {
-            if (etLga != null) {
-                etLga.setText(CouncilLookup.toDisplay(council));
-                etLga.setFocusable(false);
-                etLga.setEnabled(false);
-                etLga.setClickable(false);
-            }
+        if ("COUNCIL".equalsIgnoreCase(role) && !TextUtils.isEmpty(council)) {
+            etLga.setText(CouncilLookup.toDisplay(council));
+            etLga.setFocusable(false);
+            etLga.setEnabled(false);
+            etLga.setClickable(false);
             if (spLga != null) spLga.setVisibility(View.GONE);
-        } else if (isQH) {
-            if (spLga != null) {
-                java.util.List<String> councils = CouncilLookup.all();
-                android.widget.ArrayAdapter<String> a =
-                        new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_item, councils);
-                a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                spLga.setAdapter(a);
-                spLga.setVisibility(View.VISIBLE);
-                if (etLga != null) etLga.setVisibility(View.GONE);
-                spLga.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-                    @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int pos, long id) {
-                        if (etLga != null) etLga.setText(councils.get(pos));
-                    }
-                    @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
-                });
-            }
         }
 
         Button btnCancel = findViewById(R.id.btnCancel);
         Button btnSave = findViewById(R.id.btnSave);
         btnCancel.setOnClickListener(v -> finish());
         btnSave.setOnClickListener(v -> save());
-    }
-
-    private void showCouncilPicker() {
-        java.util.List<String> councils = CouncilLookup.all();
-        String[] arr = councils.toArray(new String[0]);
-        new AlertDialog.Builder(this)
-                .setTitle("Select council")
-                .setItems(arr, (d, which) -> etLga.setText(arr[which]))
-                .show();
     }
 
     private void save() {

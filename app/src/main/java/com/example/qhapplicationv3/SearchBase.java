@@ -30,7 +30,6 @@ public abstract class SearchBase extends AppCompatActivity {
 
     protected String role = "PUBLIC";
     protected String council = null;
-    protected boolean canEditAll = false;
 
     protected final OkHttpClient client = new OkHttpClient();
     protected final List<JSONObject> all = new ArrayList<>();
@@ -57,11 +56,19 @@ public abstract class SearchBase extends AppCompatActivity {
 
         if (UserAccount.get().getRole() != null) role = UserAccount.get().getRole();
         council = UserAccount.get().getCouncil();
-        canEditAll = "QH".equalsIgnoreCase(role);
+
+        boolean isPublic = role == null || role.equalsIgnoreCase("PUBLIC");
+        boolean isQH = role != null && (
+                role.equalsIgnoreCase("QH") ||
+                        role.equalsIgnoreCase("QLD") ||
+                        role.equalsIgnoreCase("QLD_HEALTH") ||
+                        role.equalsIgnoreCase("QUEENSLAND_HEALTH")
+        );
+        boolean isCouncil = role != null && role.equalsIgnoreCase("COUNCIL");
 
         Button add = findViewById(R.id.btnAdd);
         if (add != null) {
-            if ("PUBLIC".equalsIgnoreCase(UserAccount.get().getRole())) {
+            if (isPublic) {
                 add.setVisibility(android.view.View.GONE);
             } else {
                 add.setVisibility(android.view.View.VISIBLE);
@@ -69,7 +76,8 @@ public abstract class SearchBase extends AppCompatActivity {
             }
         }
 
-        ((TextView) findViewById(R.id.titleField)).setText(getScreenTitle());
+        TextView title = findViewById(R.id.titleField);
+        if (title != null) title.setText(getScreenTitle());
 
         RecyclerView rv = findViewById(R.id.recyclerVendors);
         rv.setLayoutManager(new LinearLayoutManager(this));
@@ -104,7 +112,6 @@ public abstract class SearchBase extends AppCompatActivity {
                 filter(q);
                 return true;
             }
-
             @Override
             public boolean onQueryTextChange(String q) {
                 filter(q);
@@ -112,18 +119,18 @@ public abstract class SearchBase extends AppCompatActivity {
             }
         });
 
-        if ("COUNCIL".equalsIgnoreCase(role) || "QH".equalsIgnoreCase(role)) {
-            String token = UserAccount.get().getAccessToken();
-            if (!TextUtils.isEmpty(token)) {
-                Toast.makeText(this, "Internal register", Toast.LENGTH_SHORT).show();
-                fetchInternalWithToken(token);
-            } else {
-                Toast.makeText(this, "Loading public register", Toast.LENGTH_SHORT).show();
-                fetchExternal();
-            }
-        } else {
+        if (isPublic) {
             Toast.makeText(this, "Loading public register", Toast.LENGTH_SHORT).show();
             fetchExternal();
+        } else {
+            String token = UserAccount.get().getAccessToken();
+            if (!TextUtils.isEmpty(token)) {
+                Toast.makeText(this, "Loading internal register", Toast.LENGTH_SHORT).show();
+                fetchInternalWithToken(token);
+            } else {
+                Toast.makeText(this, "Session expired. Loading public register.", Toast.LENGTH_SHORT).show();
+                fetchExternal();
+            }
         }
     }
 
@@ -140,8 +147,7 @@ public abstract class SearchBase extends AppCompatActivity {
         try {
             body.put("p_limit", PAGE_LIMIT);
             body.put("p_offset", PAGE_OFFSET);
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) { }
 
         Request.Builder b = new Request.Builder()
                 .url(BASE + rpcPath)
@@ -196,7 +202,7 @@ public abstract class SearchBase extends AppCompatActivity {
         filtered.clear();
         for (JSONObject o : all) {
             boolean match = false;
-            if ("PUBLIC".equalsIgnoreCase(role)) {
+            if (role == null || role.equalsIgnoreCase("PUBLIC")) {
                 String[] cols = {
                         "[LGA Name]",
                         "[* Phone]",
