@@ -43,16 +43,24 @@ public class VendorList extends RecyclerView.Adapter<VendorList.VH> {
         h.subtitle.setText(reg + " • " + lga);
         h.itemView.setOnClickListener(v -> onRowClick.onClick(o));
 
-        String roleRaw = UserAccount.get().getRole();
+        String role = UserAccount.get().getRole();
         String council = UserAccount.get().getCouncil();
-        String role = roleRaw == null ? "" : roleRaw.trim();
+
+        boolean isPublic = role == null || role.equalsIgnoreCase("PUBLIC");
+        boolean isQH = role != null && (
+                role.equalsIgnoreCase("QH") ||
+                        role.equalsIgnoreCase("QLD") ||
+                        role.equalsIgnoreCase("QLD_HEALTH") ||
+                        role.equalsIgnoreCase("QUEENSLAND_HEALTH")
+        );
+        boolean isCouncil = role != null && role.equalsIgnoreCase("COUNCIL");
 
         boolean canDelete;
-        if (role.isEmpty() || role.equalsIgnoreCase("PUBLIC")) {
+        if (isPublic) {
             canDelete = false;
-        } else if (role.equalsIgnoreCase("QH")) {
+        } else if (isQH) {
             canDelete = true;
-        } else if (role.equalsIgnoreCase("COUNCIL") && !TextUtils.isEmpty(council)) {
+        } else if (isCouncil && !TextUtils.isEmpty(council)) {
             String rec = lga == null ? "" : lga;
             boolean okExact = council.equals(rec);
             boolean okSlug = council.equalsIgnoreCase(slug(rec));
@@ -62,30 +70,27 @@ public class VendorList extends RecyclerView.Adapter<VendorList.VH> {
             canDelete = false;
         }
 
-        if (h.btnDelete != null) {
-            h.btnDelete.setVisibility(canDelete ? View.VISIBLE : View.GONE);
-            h.btnDelete.setOnClickListener(v -> {
-                if (TextUtils.isEmpty(id) || "null".equalsIgnoreCase(id)) {
-                    Toast.makeText(v.getContext(), "Missing id", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                new AlertDialog.Builder(v.getContext())
-                        .setTitle("Delete vendor")
-                        .setMessage("Delete \"" + title + "\"?")
-                        .setPositiveButton("Delete", (d, w) -> {
-                            VendorDetails.deleteVendor(v.getContext(), id, lga, () -> {
-                                int p = h.getAdapterPosition();
-                                if (p != RecyclerView.NO_POSITION) {
-                                    items.remove(p);
-                                    notifyItemRemoved(p);
-                                    notifyItemRangeChanged(p, getItemCount() - p);
-                                }
-                            });
-                        })
-                        .setNegativeButton("Cancel", null)
-                        .show();
-            });
-        }
+        h.btnDelete.setVisibility(canDelete ? View.VISIBLE : View.GONE);
+        h.btnDelete.setOnClickListener(v -> {
+            if (TextUtils.isEmpty(id) || "null".equalsIgnoreCase(id)) {
+                Toast.makeText(v.getContext(), "Missing id", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            new AlertDialog.Builder(v.getContext())
+                    .setTitle("Delete vendor")
+                    .setMessage("Delete \"" + title + "\"?")
+                    .setPositiveButton("Delete", (d, w) -> {
+                        VendorDetails.deleteVendor(v.getContext(), id, lga, () -> {
+                            int p = h.getAdapterPosition();
+                            if (p != RecyclerView.NO_POSITION) {
+                                items.remove(p);
+                                notifyItemRemoved(p);
+                            }
+                        });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
     }
 
     @Override
